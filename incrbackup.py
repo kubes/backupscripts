@@ -64,19 +64,21 @@ class IncrementalBackup:
       raise BaseException(str(command) + " " + str(result))
         
   def backup(self):
-    
-    padding = len(str(self.keep))
-    backups = []
-        
-    # get the current date and timestamp and the zero backup name
-    now = datetime.datetime.now()
-    tstamp = now.strftime("%Y%m%d%H%M%S")
-    zbackup_name = string.join(["".zfill(padding), tstamp, self.name], ".")
-    zbackup_path = self.store + os.sep + zbackup_name 
 
     # rotate the backups
     rotater = rotatebackups.RotateBackups(self.keep, self.store)
-    rotater.rotate_backups()
+    rotated_names = rotater.rotate_backups()
+
+    rsync_to = None
+    if not rotated_names:
+      # get the current date and timestamp and the zero backup name
+      now = datetime.datetime.now()
+      padding = len(str(self.keep))
+      tstamp = now.strftime("%Y%m%d%H%M%S")
+      zbackup_name = string.join(["".zfill(padding), tstamp, self.name], ".")
+      rsync_to = self.store + os.sep + zbackup_name
+    else:
+      rsync_to = rotated_names[0]
     
     # create the base rsync command with excludes
     rsync_base = ["rsync", "-avR", "--ignore-errors", "--delete", "--delete-excluded"]
@@ -105,7 +107,8 @@ class IncrementalBackup:
       if self.server:
         bpath = self.user + "@" + self.server + ":" + bpath
       rsync_cmd.append(bpath)
-      rsync_cmd.append(zbackup_path)
+      rsync_cmd.append(rsync_to)
+      logging.debug(rsync_cmd)
       self.run_command(command=rsync_cmd, ignore_errors=True)
 
 """

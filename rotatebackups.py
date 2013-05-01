@@ -35,9 +35,10 @@ Revision      | Author            | Comment
 """
 class RotateBackups:
 
-  def __init__(self, keep=90, store=None):
+  def __init__(self, keep=90, store=None, name=None):
     self.keep = keep
     self.store = store
+    self.name = name
 
   def run_command(self, command=None, shell=False, ignore_errors=False, 
     ignore_codes=None):
@@ -50,6 +51,7 @@ class RotateBackups:
     padding = len(str(self.keep))
 
     backups = []
+    final_backup_names = []
     
     # add the backup directories to a list, dirs are the form num.prefix.date
     for backup_dir in os.listdir(self.store):
@@ -89,12 +91,14 @@ class RotateBackups:
           if bnum > 0:
             logging.debug([bnum, "mv", old_bpath, new_bpath])
             self.run_command(["mv", old_bpath, new_bpath])
+            final_backup_names.append(new_bpath)
 
           elif bnum == 0:
 
             if os.path.isdir(old_bpath):
               logging.debug(["cp", "-al", old_bpath, new_bpath])          
               self.run_command(["cp", "-al", old_bpath, new_bpath])
+              final_backup_names.append(new_bpath)
 
               # get the current date and timestamp and create the zero backup path
               now = datetime.datetime.now()
@@ -105,11 +109,17 @@ class RotateBackups:
   
               # move the zero directory to the new timestamp
               logging.debug([0, "mv", old_bpath, zbackup_path])   
-              self.run_command(["mv", old_bpath, zbackup_path])  
+              self.run_command(["mv", old_bpath, zbackup_path])
+              final_backup_names.append(zbackup_path)
 
             else:
               logging.debug(["mv",  old_bpath, new_bpath])          
-              self.run_command(["mv", old_bpath, new_bpath])                     
+              self.run_command(["mv", old_bpath, new_bpath])
+              final_backup_names.append(new_bpath)
+
+    # return the final backup file or directory names, most recent to least
+    final_backup_names.reverse()
+    return final_backup_names                  
 
 
 """
