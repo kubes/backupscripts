@@ -1,0 +1,10 @@
+{
+  "backup" : [
+    "/home/dennis/Videos"
+  ],
+  "exclude" : [
+    "*.mov",
+    "*.webm",
+    "/home/dennis/Videos/the bible"
+  ]
+}

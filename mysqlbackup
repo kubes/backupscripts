@@ -1,0 +1,223 @@
+#!/usr/bin/python
+
+import sys
+import string
+import shutil
+import getopt
+import os
+import os.path
+import syslog
+import errno
+import logging
+import tempfile
+import datetime
+import subprocess
+
+from operator import itemgetter
+
+"""
+-----------------------------------------------------------------------------
+A script to backup mysql databases through the mysqldump utility.
+
+Use the -h or the --help flag to get a listing of options.
+
+Program: Mysql Database Backups
+Author: Dennis E. Kubes
+Date: April 28, 2013
+Revision: 1.0
+
+Revision      | Author            | Comment
+-----------------------------------------------------------------------------
+20130428-1.0    Dennis E. Kubes     Initial creation of script.
+-----------------------------------------------------------------------------
+"""
+class MysqlBackup:
+
+  def __init__(self, keep=90, databases=None, backup_root=None, user="root", 
+    password=None, host=None):
+    self.host = host
+    self.keep = keep
+    self.databases = databases
+    self.backup_root = backup_root
+    self.user = user
+    self.password = password
+    self.host = host
+    
+  def run_command(self, command=None, shell=False, ignore_errors=False, 
+    ignore_codes=None, get_output=False):
+    result = subprocess.call(command, shell=False)
+    if result and not ignore_errors and (not ignore_codes or result in set(ignore_codes)):
+      raise BaseException(str(command) + " " + str(result))
+
+  def get_databases(self):
+
+    if self.databases != None:
+      return [s.strip() for s in self.databases.strip().split(",")]
+
+    list_cmd = "mysql -u" + self.user
+    if self.host != None:
+      list_cmd += " -h " + self.host
+    if self.password != None:
+      list_cmd += " -p" + self.password
+    list_cmd += " --silent -N -e 'show databases'"
+    databases = os.popen(list_cmd).readlines()
+    return [s.strip() for s in databases]
+        
+  def backup(self):
+    
+    backups = []
+    
+    # add the backup directories to a list, dirs are the form num.prefix.date
+    for backup_dump in os.listdir(self.backup_root):
+      bparts = backup_dump.split(".")
+      if len(bparts) == 5 and bparts[0].isdigit():
+        bparts.append(backup_dump)
+        backups.append(bparts)
+        
+    # get the current date and timestamp and the zero backup name
+    now = datetime.datetime.now()
+    tstamp = now.strftime("%Y%m%d%H%M%S")
+    
+    # only need to process backup directories if we have some
+    if len(backups) > 0:
+    
+      # order the backups in the list by reverse number, highest first
+      backups = sorted(backups, key=itemgetter(0), reverse=True)
+      logging.debug(backups)
+
+      # perform shifting and processing on the backup directories
+      for bparts in backups:
+      
+        # remove backups >= number to keep
+        bnum = int(bparts[0])
+        if bnum >= self.keep:
+          bpath = self.backup_root + os.sep + bparts[-1]
+          logging.debug(["rm", "-f", bpath])
+          self.run_command(["rm", "-f", bpath])
+        else:
+        
+          # above 0 gets shifted to one number higher and moved, 0 gets hardlink
+          # copied to 1
+          old_bpath = self.backup_root + os.sep + bparts[-1]
+          num_prefix = str(bnum + 1).zfill(4)
+          new_backup_name = string.join([num_prefix] + bparts[1:5], ".")
+          new_bpath = self.backup_root + os.sep + new_backup_name     
+          if bnum >= 0:
+            logging.debug([bnum, "mv", old_bpath, new_bpath])
+            self.run_command(["mv", old_bpath, new_bpath])
+
+    databases = self.get_databases()
+    skip = ["information_schema", "performance_schema", "test"]
+    for database in databases:
+      if database in skip:
+        continue
+
+      dbbackup_name = string.join(["0000", database, tstamp, "sql"], ".")
+      dbbackup_path = self.backup_root + os.sep + dbbackup_name 
+
+      dump_cmd = "mysqldump -u " + self.user
+      if self.host != None:
+        dump_cmd += " -h " + "'" + self.host + "'"
+      if self.password != None:
+        dump_cmd += " -p" + self.password
+      dump_cmd += " -e --opt -c " + database + " | gzip > " + dbbackup_path + ".gz"
+      logging.info("Dump db, %s to %s." % (database, dbbackup_path))
+      os.popen(dump_cmd)
+
+"""
+Prints out the usage for the command line.
+"""
+def usage():
+  usage = ["mysqlback [-hnkdbus]\n"]
+  usage.append("  [-h | --help] prints this help and usage message\n")
+  usage.append("  [-k | --keep] number of backups to keep before deleting\n")
+  usage.append("  [-d | --databases] a comma separated list of databases\n")
+  usage.append("  [-b | --backup-root] directory locally to store the backups\n")
+  usage.append("  [-u | --user] the database user\n")
+  usage.append("  [-p | --password] the database password\n")
+  usage.append("  [-s | --host] the database server hostname\n")
+  message = string.join(usage)
+  print message
+
+"""
+Main method that starts up the backup.  
+"""
+def main(argv):
+
+  # set the default values
+  pid_file = tempfile.gettempdir() + os.sep + "mysqlbackup.pid"
+  keep = 90
+  databases = None
+  user = None
+  password = None
+  host = None
+  backup_root = None
+                   
+  try:
+    
+    # process the command line options   
+    opts, args = getopt.getopt(argv, "hn:k:d:b:u:p:s:", ["help", "keep=", 
+      "databases=", "backup-root=", "user=", "password=", "host="])
+    
+    # if no arguments print usage
+    if len(argv) == 0:      
+      usage()                    
+      sys.exit()   
+            
+    # loop through all of the command line options and set the appropriate
+    # values, overriding defaults
+    for opt, arg in opts:                
+      if opt in ("-h", "--help"):      
+        usage()                    
+        sys.exit()
+      elif opt in ("-k", "--keep"):                
+        keep = int(arg)
+      elif opt in ("-d", "--databases"):                
+        server = arg                
+      elif opt in ("-b", "--backup-root"): 
+        backup_root = arg
+      elif opt in ("-u", "--user"): 
+        user = arg
+      elif opt in ("-p", "--password"): 
+        password = arg
+      elif opt in ("-s", "--host"): 
+        host = arg
+                                       
+  except getopt.GetoptError, msg:    
+    logging.warning(msg)
+    # if an error happens print the usage and exit with an error       
+    usage()                          
+    sys.exit(errno.EIO)
+
+  # check options are set correctly
+  if user == None or backup_root == None:
+    logging.warning("Backup root (-b) is required")
+    usage()                          
+    sys.exit(errno.EPERM)
+
+  # process backup, catch any errors, and perform cleanup
+  try:
+  
+    # another backup can't already be running, if pid file doesn't exist, then
+    # create it
+    if os.path.exists(pid_file):
+      logging.warning("Backup running, %s pid exists, exiting." % pid_file)
+      sys.exit(errno.EBUSY)
+    else:
+      pid = str(os.getpid())
+      f = open(pid_file, "w")
+      f.write("%s\n" % pid)
+      f.close()
+      
+    # create the backup object and call its backup method
+    mysql_backup = MysqlBackup(keep, databases, backup_root, user, password, host)
+    mysql_backup.backup()
+
+  except(Exception):            
+    logging.exception("Mysql backups failed.")      
+  finally:
+    os.remove(pid_file)
+      
+# if we are running the script from the command line
+if __name__ == "__main__":
+  main(sys.argv[1:])
