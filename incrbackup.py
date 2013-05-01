@@ -112,7 +112,7 @@ class IncrementalBackup:
 Prints out the usage for the command line.
 """
 def usage():
-  usage = ["incremental_backup.py [-hnksftu]\n"]
+  usage = ["incrbackup.py [-hnksftu]\n"]
   usage.append("  [-h | --help] prints this help and usage message\n")
   usage.append("  [-n | --name] backup namespace\n")
   usage.append("  [-k | --keep] number of backups to keep before deleting\n")

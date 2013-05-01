@@ -116,7 +116,7 @@ class RotateBackups:
 Prints out the usage for the command line.
 """
 def usage():
-  usage = ["rotatebackups [-hkt]\n"]
+  usage = ["rotatebackups.py [-hkt]\n"]
   usage.append("  [-h | --help] prints this help and usage message\n")
   usage.append("  [-k | --keep] number of backups to keep before deleting\n")
   usage.append("  [-t | --store] directory locally to store the backups\n")

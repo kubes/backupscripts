@@ -99,7 +99,7 @@ class MysqlBackup:
 Prints out the usage for the command line.
 """
 def usage():
-  usage = ["mysqlback [-hnkdbus]\n"]
+  usage = ["mysqlbackup.py [-hnkdbus]\n"]
   usage.append("  [-h | --help] prints this help and usage message\n")
   usage.append("  [-k | --keep] number of backups to keep before deleting\n")
   usage.append("  [-d | --databases] a comma separated list of databases\n")

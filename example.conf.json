@@ -1,10 +1,10 @@
 {
   "backup" : [
-    "/home/dennis/Videos"
+    "/path/to/include"
   ],
   "exclude" : [
-    "*.mov",
-    "*.webm",
-    "/home/dennis/Videos/the bible"
+    "*.extension.to.exclude",
+    "*.another.extension",
+    "/path/to/exclude"
   ]
 }
