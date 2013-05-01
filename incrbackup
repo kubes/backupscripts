@@ -145,7 +145,6 @@ class IncrementalBackup:
         bpath = self.user + "@" + self.server + ":" + bpath
       rsync_cmd.append(bpath)
       rsync_cmd.append(zbackup_path)
-      print(rsync_cmd)   
       self.run_command(command=rsync_cmd, ignore_errors=True)
 
 """
