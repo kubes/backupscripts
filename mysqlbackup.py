@@ -12,6 +12,7 @@ import logging
 import tempfile
 import datetime
 import subprocess
+import rotatebackups
 
 from operator import itemgetter
 
@@ -33,12 +34,12 @@ Revision      | Author            | Comment
 """
 class MysqlBackup:
 
-  def __init__(self, keep=90, databases=None, backup_root=None, user="root", 
+  def __init__(self, keep=90, databases=None, store=None, user="root", 
     password=None, host=None):
     self.host = host
     self.keep = keep
     self.databases = databases
-    self.backup_root = backup_root
+    self.store = store
     self.user = user
     self.password = password
     self.host = host
@@ -65,63 +66,33 @@ class MysqlBackup:
         
   def backup(self):
     
+    padding = len(str(self.keep))    
     backups = []
-    
-    # add the backup directories to a list, dirs are the form num.prefix.date
-    for backup_dump in os.listdir(self.backup_root):
-      bparts = backup_dump.split(".")
-      if len(bparts) == 5 and bparts[0].isdigit():
-        bparts.append(backup_dump)
-        backups.append(bparts)
-        
+  
+    # rotate the backups
+    rotater = rotatebackups.RotateBackups(self.keep, self.store)
+    rotater.rotate_backups()
+
     # get the current date and timestamp and the zero backup name
     now = datetime.datetime.now()
     tstamp = now.strftime("%Y%m%d%H%M%S")
     
-    # only need to process backup directories if we have some
-    if len(backups) > 0:
-    
-      # order the backups in the list by reverse number, highest first
-      backups = sorted(backups, key=itemgetter(0), reverse=True)
-      logging.debug(backups)
-
-      # perform shifting and processing on the backup directories
-      for bparts in backups:
-      
-        # remove backups >= number to keep
-        bnum = int(bparts[0])
-        if bnum >= self.keep:
-          bpath = self.backup_root + os.sep + bparts[-1]
-          logging.debug(["rm", "-f", bpath])
-          self.run_command(["rm", "-f", bpath])
-        else:
-        
-          # above 0 gets shifted to one number higher and moved, 0 gets hardlink
-          # copied to 1
-          old_bpath = self.backup_root + os.sep + bparts[-1]
-          num_prefix = str(bnum + 1).zfill(4)
-          new_backup_name = string.join([num_prefix] + bparts[1:5], ".")
-          new_bpath = self.backup_root + os.sep + new_backup_name     
-          if bnum >= 0:
-            logging.debug([bnum, "mv", old_bpath, new_bpath])
-            self.run_command(["mv", old_bpath, new_bpath])
-
     databases = self.get_databases()
     skip = ["information_schema", "performance_schema", "test"]
-    for database in databases:
-      if database in skip:
+    for db in databases:
+      if db in skip:
         continue
 
-      dbbackup_name = string.join(["0000", database, tstamp, "sql"], ".")
-      dbbackup_path = self.backup_root + os.sep + dbbackup_name 
+      dbbackup_name = string.join(["".zfill(padding), tstamp, db, "sql"], ".")
+      dbbackup_path = self.store + os.sep + dbbackup_name 
 
       dump_cmd = "mysqldump -u " + self.user
       if self.host != None:
         dump_cmd += " -h " + "'" + self.host + "'"
       if self.password != None:
         dump_cmd += " -p" + self.password
-      dump_cmd += " -e --opt -c " + database + " | gzip > " + dbbackup_path + ".gz"
-      logging.info("Dump db, %s to %s." % (database, dbbackup_path))
+      dump_cmd += " -e --opt -c " + db + " | gzip > " + dbbackup_path + ".gz"
+      logging.info("Dump db, %s to %s." % (db, dbbackup_path))
       os.popen(dump_cmd)
 
 """
@@ -151,13 +122,13 @@ def main(argv):
   user = None
   password = None
   host = None
-  backup_root = None
+  store = None
                    
   try:
     
     # process the command line options   
-    opts, args = getopt.getopt(argv, "hn:k:d:b:u:p:s:", ["help", "keep=", 
-      "databases=", "backup-root=", "user=", "password=", "host="])
+    opts, args = getopt.getopt(argv, "hn:k:d:t:u:p:s:", ["help", "keep=", 
+      "databases=", "store=", "user=", "password=", "host="])
     
     # if no arguments print usage
     if len(argv) == 0:      
@@ -174,8 +145,8 @@ def main(argv):
         keep = int(arg)
       elif opt in ("-d", "--databases"):                
         server = arg                
-      elif opt in ("-b", "--backup-root"): 
-        backup_root = arg
+      elif opt in ("-t", "--store"): 
+        store = arg
       elif opt in ("-u", "--user"): 
         user = arg
       elif opt in ("-p", "--password"): 
@@ -190,8 +161,8 @@ def main(argv):
     sys.exit(errno.EIO)
 
   # check options are set correctly
-  if user == None or backup_root == None:
-    logging.warning("Backup root (-b) is required")
+  if user == None or store == None:
+    logging.warning("Backup store directory (-t) and user (-u) are required")
     usage()                          
     sys.exit(errno.EPERM)
 
@@ -210,7 +181,7 @@ def main(argv):
       f.close()
       
     # create the backup object and call its backup method
-    mysql_backup = MysqlBackup(keep, databases, backup_root, user, password, host)
+    mysql_backup = MysqlBackup(keep, databases, store, user, password, host)
     mysql_backup.backup()
 
   except(Exception):            
@@ -218,6 +189,6 @@ def main(argv):
   finally:
     os.remove(pid_file)
       
-# if we are running the script from the command line
+# if we are running the script from the command line, run the main function
 if __name__ == "__main__":
   main(sys.argv[1:])

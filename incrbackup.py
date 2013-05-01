@@ -13,6 +13,7 @@ import tempfile
 import datetime
 import subprocess
 import json
+import rotatebackups
 
 from operator import itemgetter
 
@@ -64,58 +65,18 @@ class IncrementalBackup:
         
   def backup(self):
     
+    padding = len(str(self.keep))
     backups = []
-    
-    # add the backup directories to a list, dirs are the form num.prefix.date
-    for backup_dir in os.listdir(self.store):
-      bparts = backup_dir.split(".")
-      if len(bparts) == 3 and bparts[0].isdigit():
-        bparts.append(backup_dir)
-        backups.append(bparts)
         
     # get the current date and timestamp and the zero backup name
     now = datetime.datetime.now()
     tstamp = now.strftime("%Y%m%d%H%M%S")
-    zbackup_name = string.join(["0000", self.name, tstamp], ".")
+    zbackup_name = string.join(["".zfill(padding), tstamp, self.name], ".")
     zbackup_path = self.store + os.sep + zbackup_name 
-    
-    # only need to process backup directories if we have some
-    if len(backups) > 0:
-    
-      # order the backups in the list by reverse number, highest first
-      backups = sorted(backups, key=itemgetter(0), reverse=True)
-      logging.debug(backups)
 
-      # perform shifting and processing on the backup directories
-      for bparts in backups:
-      
-        # remove backups >= number of days to keep
-        bnum = int(bparts[0])
-        if bnum >= self.keep:
-          bpath = self.store + os.sep + bparts[3]
-          logging.debug(["rm", "-fr", bpath])
-          self.run_command(["rm", "-fr", bpath])
-        else:
-        
-          # above 0 gets shifted to one number higher and moved, 0 gets hardlink
-          # copied to 1
-          old_bpath = self.store + os.sep + bparts[3]
-          num_prefix = str(bnum + 1).zfill(4)
-          new_backup_name = string.join([num_prefix, bparts[1], bparts[2]], ".")
-          new_bpath = self.store + os.sep + new_backup_name        
-          if bnum > 0:
-            logging.debug([bnum, "mv", old_bpath, new_bpath])
-            self.run_command(["mv", old_bpath, new_bpath])
-          elif bnum == 0:
-            logging.debug(["cp", "-al", old_bpath, new_bpath])          
-            self.run_command(["cp", "-al", old_bpath, new_bpath])
-
-      # change the name of the 0 directory if it exists
-      zbackup = backups[-1]
-      if zbackup:
-        old_bpath = self.store + os.sep + zbackup[3]
-        logging.debug([0, "mv", old_bpath, zbackup_path])   
-        self.run_command(["mv", old_bpath, zbackup_path])
+    # rotate the backups
+    rotater = rotatebackups.RotateBackups(self.keep, self.store)
+    rotater.rotate_backups()
     
     # create the base rsync command with excludes
     rsync_base = ["rsync", "-avR", "--ignore-errors", "--delete", "--delete-excluded"]
@@ -239,8 +200,7 @@ def main(argv):
   finally:
     os.remove(pid_file)
       
-# if we are running the script from the command line, run the main
-# method of the JobStream class
+# if we are running the script from the command line, run the main function
 if __name__ == "__main__":
   main(sys.argv[1:])
 
