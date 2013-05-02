@@ -13,16 +13,18 @@ import tempfile
 import datetime
 import subprocess
 import json
-import rotatebackups
+import paramiko
 
 from operator import itemgetter
 
 """
 -----------------------------------------------------------------------------
-An incremental backup system that uses rsync and hard links to keep multiple
-backups of one or more systems while using minimal space.  If backing up remote
-servers this script assumes that the proper ssh keys have been setup from the
-backup server hosting this script to the servers being backed up.
+An incremental backup system that pushes backups to a remote server.  Useful
+for remote systems that aren't always on (laptops).  Backups use rsync and hard 
+links to keep multiple full copies while using minimal space.  It is assumed
+that the rotatebackups.py script exists on the remote backup server and that
+the proper ssh keys have been setup from the pushing server to the backup
+server.
 
 A pid file is placed into the system temp directory to prevent concurrent 
 backups from running at once.  The script provides options for the number of 
@@ -35,27 +37,28 @@ specified then the remote user used by ssh for rsync is considered to be backup.
 
 Use the -h or the --help flag to get a listing of options.
 
-Program: Incremental Backups
+Program: Push Backups
 Author: Dennis E. Kubes
-Date: August 01, 2011
-Revision: 1.2
+Date: May 01, 2013
+Revision: 1.0
 
 Revision      | Author            | Comment
 -----------------------------------------------------------------------------
-20111122-1.0  Dennis E. Kubes     Initial creation of script.
-20131430-1.2  Dennis E. Kubes     Added excludes logic, config json file.
+20131430-1.0  Dennis E. Kubes     Initial creation of script.
 -----------------------------------------------------------------------------
 """
-class IncrementalBackup:
+class PushBackup:
 
   def __init__(self, name="backup", server=None, keep=90, store=None, 
-    config_file=None, user="root"):
+    config_file=None, user="root", ssh_key=None, rotate_script=None):
     self.name = name
     self.server = server
     self.keep = keep
     self.config_file = config_file
     self.store = store
     self.user = user
+    self.ssh_key = ssh_key
+    self.rotate_script = rotate_script
     
   def run_command(self, command=None, shell=False, ignore_errors=False, 
     ignore_codes=None):
@@ -65,9 +68,18 @@ class IncrementalBackup:
         
   def backup(self):
 
-    # rotate the backups
-    rotater = rotatebackups.RotateBackups(self.keep, self.store)
-    rotated_names = rotater.rotate_backups()
+    # create the ssh client to run the remote rotate script
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.load_system_host_keys()
+    client.connect(self.server, username=self.user, key_filename=self.ssh_key)
+
+    # rotate the backups remotely by running the rotatebackups.py script on the
+    # remote backup server
+    rotate_cmd = [self.rotate_script, "-k", str(self.keep), "-t", self.store]
+    stdin, stdout, stderr = client.exec_command(" ".join(rotate_cmd))
+    rotated_names = stdout.readlines()
+    client.close()
 
     rsync_to = None
     if not rotated_names:
@@ -103,11 +115,9 @@ class IncrementalBackup:
     # one rsync command per path, ignore files vanished errors
     for bpath in bpaths:
       bpath = bpath.strip()
-      rsync_cmd = rsync_base[:]      
-      if self.server:
-        bpath = self.user + "@" + self.server + ":" + bpath
+      rsync_cmd = rsync_base[:]
       rsync_cmd.append(bpath)
-      rsync_cmd.append(rsync_to)
+      rsync_cmd.append(self.user + "@" + self.server + ":" + rsync_to)
       logging.debug(rsync_cmd)
       self.run_command(command=rsync_cmd, ignore_errors=True)
 
@@ -115,14 +125,16 @@ class IncrementalBackup:
 Prints out the usage for the command line.
 """
 def usage():
-  usage = ["incrbackup.py [-hnksctu]\n"]
+  usage = ["pushbackup.py [-hnksctuxr]\n"]
   usage.append("  [-h | --help] prints this help and usage message\n")
   usage.append("  [-n | --name] backup namespace\n")
   usage.append("  [-k | --keep] number of backups to keep before deleting\n")
-  usage.append("  [-s | --server] the server to backup, if remote\n")
+  usage.append("  [-s | --server] the server to push to backup to\n")
   usage.append("  [-c | --config] configuration file with backup paths\n")
   usage.append("  [-t | --store] directory locally to store the backups\n")
   usage.append("  [-u | --user] the remote username used to ssh for backups\n")
+  usage.append("  [-x | --ssh-key] the ssh key used to connect to the backup\n")
+  usage.append("  [-r | --rotate-script] the rotatebackups script remote location\n")
   message = string.join(usage)
   print message
 
@@ -132,19 +144,22 @@ Main method that starts up the backup.
 def main(argv):
 
   # set the default values
-  pid_file = tempfile.gettempdir() + os.sep + "incrbackup.pid"
+  pid_file = tempfile.gettempdir() + os.sep + "pushbackup.pid"
   name = "backup"
   keep = 90
   server = None
   config_file = None
   store = None
   user = "backup"
+  ssh_key = os.path.expanduser("~/.ssh/id_rsa")
+  rotate_script = "rotatebackups.py"
                    
   try:
     
     # process the command line options   
-    opts, args = getopt.getopt(argv, "hn:k:s:c:t:u:", ["help", "name=", 
-      "keep=", "server=", "config=", "store=", "user="])
+    opts, args = getopt.getopt(argv, "hn:k:s:c:t:u:x:r:", ["help", "name=", 
+      "keep=", "server=", "config=", "store=", "user=", "ssh-key=", 
+      "rotate-script="])
     
     # if no arguments print usage
     if len(argv) == 0:      
@@ -162,21 +177,25 @@ def main(argv):
       elif opt in ("-k", "--keep"):                
         keep = int(arg)
       elif opt in ("-s", "--server"):                
-        server = arg                
+        server = arg                 
       elif opt in ("-c", "--config"): 
         config_file = arg
       elif opt in ("-t", "--store"): 
         store = arg
       elif opt in ("-u", "--user"): 
         user = arg
-                                       
+      elif opt in ("-x", "--ssh-key"): 
+        ssh_key = arg
+      elif opt in ("-r", "--rotate-script"): 
+        rotate_script = arg
+
   except getopt.GetoptError, msg:
     # if an error happens print the usage and exit with an error       
     usage()                          
     sys.exit(errno.EIO)
 
   # check options are set correctly
-  if config_file == None or store == None:
+  if config_file == None or store == None or server == None:
     usage()                          
     sys.exit(errno.EPERM)
 
@@ -193,10 +212,11 @@ def main(argv):
       f = open(pid_file, "w")
       f.write("%s\n" % pid)
       f.close()
-      
+
     # create the backup object and call its backup method
-    ibackup = IncrementalBackup(name, server, keep, store, config_file, user)
-    ibackup.backup()
+    pbackup = PushBackup(name, server, keep, store, config_file, user,
+      ssh_key, rotate_script)
+    pbackup.backup()
 
   except(Exception):            
     logging.exception("Incremental backup failed.")      
