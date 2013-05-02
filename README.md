@@ -1,23 +1,20 @@
-Python Incremental Backup Scripts
+Python Backup Scripts
 =============
 
 Python scripts for incremental backups of servers.  This includes filesystem 
-backup and mysql backup.  
+backups and mysql backups.  
 
-
-Filesystem Backups
+Pulled Backups
 ===========
-Filesystem backups are done through the incrbackup script.
+Pulled filesystem backups are done through the incrbackup.py script.  Backups
+are pulled down from remote systems to the backup server for security, the 
+backup server can get to the remote systems being backed up but not vice versa.
+Hence if a remote system is compromised the backup server isn't.
 
-Filesystem backups use rsync and hard links to keep multiple copies of one or 
+Pulled backups use rsync and hard links to keep multiple copies of one or 
 more filesystems while using minimal space.  If backing up remote
 servers this script assumes that the proper ssh keys have been setup from the
 backup server hosting this script to the servers being backed up.
-
-A pid file is placed into the system temp directory to prevent concurrent 
-backups from running at once.  The script provides options for the number of 
-backups to keep.  After the max number of backups is reached, backups are 
-deleted starting with the oldest backup first.
 
 Backup paths can be either local or remote.  The backup directory where
 the backups are stored must be local and must already exist.  If a users isn't
@@ -26,12 +23,12 @@ user named backup.
 
 Use the -h or the --help flag to get a listing of options.
 
-    incremental_backup.py [-hnksftu]
+    incrbackup.py [-hnksctu]
        [-h | --help] prints this help and usage message
        [-n | --name] backup namespace
        [-k | --keep] number of backups to keep before deleting
        [-s | --server] the server to backup, if remote
-       [-f | --config] configuration file with backup paths
+       [-c | --config] configuration file with backup paths
        [-t | --store] directory locally to store the backups
        [-u | --user] the remote username used to ssh for backups
 
@@ -56,9 +53,38 @@ Usually the backup scripts are run from a remote, off-site, server pulling down
 content from the servers to backup.  Scripts are usually setup to run from cron
 periodically.
 
+
+Pushed Filesystem Backups
+===========
+Pushed filesystem backups are done through the pushbackup.py script.
+
+his is an incremental backup system that pushes to a remote server.  Useful
+for remote systems that aren't always on (laptops).  Backups use rsync and hard 
+links to keep multiple full copies while using minimal space.  It is assumed
+that the rotatebackups.py script exists on the remote backup server and that
+the proper ssh keys have been setup from the pushing server to the backup
+server.
+
+Use the -h or the --help flag to get a listing of options.
+
+    pushbackup.py [-hnksctuxr]
+       [-h | --help] prints this help and usage message
+       [-n | --name] backup namespace
+       [-k | --keep] number of backups to keep before deleting
+       [-s | --server] the server to push to backup to
+       [-c | --config] configuration file with backup paths
+       [-t | --store] directory locally to store the backups
+       [-u | --user] the remote username used to ssh for backups
+       [-x | --ssh-key] the ssh key used to connect to the backup
+       [-r | --rotate-script] the rotatebackups script remote location
+
+Pushed backup use the same config format as pulled backups.  Pushed backups are
+usually run manually when needed.  They should not be used to backup servers due
+to security reasons.  If backing up server filesystem see pulled backups.
+
 MySQL Backups
 ===========
-MySQL backups are done through the mysqlbackup script.
+MySQL backups are done through the mysqlbackup.py script.
 
 A pid file is placed into the system temp directory to prevent concurrent 
 backups from running at once.  The script provides options for the number of 
@@ -67,13 +93,17 @@ deleted starting with the oldest backup first.
 
 Use the -h or the --help flag to get a listing of options.
 
-    mysqlback [-hnkdbus]
+    mysqlbackup.py [-hkdbups]
        [-h | --help] prints this help and usage message
        [-k | --keep] number of backups to keep before deleting
        [-d | --databases] a comma separated list of databases
-       [-b | --backup-root] directory locally to store the backups
+       [-t | --store] directory locally to store the backups
        [-u | --user] the database user
        [-p | --password] the database password
        [-s | --host] the database server hostname
 
-Please feel free to send any improvements or bug fixes.
+License and Bug Fixes
+===========
+These works are public domain or licensed under the Apache Licene. You can do
+anything you want with them.  Please feel free to send any improvements or 
+bug fixes.
