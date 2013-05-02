@@ -12,7 +12,6 @@ import logging
 import tempfile
 import datetime
 import subprocess
-import rotatebackups
 
 from operator import itemgetter
 
@@ -69,21 +68,24 @@ class MysqlBackup:
     padding = len(str(self.keep))    
     backups = []
   
-    # rotate the backups
-    rotater = rotatebackups.RotateBackups(self.keep, self.store)
-    rotater.rotate_backups()
-
+    # remove files older than keep days
+    cutdate = datetime.datetime.now() - datetime.timedelta(days=self.keep)   
+    for backup_file in os.listdir(self.store):
+      bparts = backup_file.split(".")
+      if bparts[0].isdigit():
+        dumpdate = datetime.datetime.strptime(bparts[0], "%Y%m%d%H%M%S")
+        if dumpdate < cutdate:
+          os.remove(os.path.join(self.store, backup_file))
+        
     # get the current date and timestamp and the zero backup name
-    now = datetime.datetime.now()
-    tstamp = now.strftime("%Y%m%d%H%M%S")
-    
+    tstamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")    
     databases = self.get_databases()
     skip = ["information_schema", "performance_schema", "test"]
     for db in databases:
       if db in skip:
         continue
 
-      dbbackup_name = string.join(["".zfill(padding), tstamp, db, "sql"], ".")
+      dbbackup_name = string.join([tstamp, db, "sql"], ".")
       dbbackup_path = self.store + os.sep + dbbackup_name 
 
       dump_cmd = "mysqldump -u " + self.user
@@ -99,11 +101,11 @@ class MysqlBackup:
 Prints out the usage for the command line.
 """
 def usage():
-  usage = ["mysqlbackup.py [-hnkdbus]\n"]
+  usage = ["mysqlbackup.py [-hkdbups]\n"]
   usage.append("  [-h | --help] prints this help and usage message\n")
   usage.append("  [-k | --keep] number of backups to keep before deleting\n")
   usage.append("  [-d | --databases] a comma separated list of databases\n")
-  usage.append("  [-b | --backup-root] directory locally to store the backups\n")
+  usage.append("  [-t | --store] directory locally to store the backups\n")
   usage.append("  [-u | --user] the database user\n")
   usage.append("  [-p | --password] the database password\n")
   usage.append("  [-s | --host] the database server hostname\n")
