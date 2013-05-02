@@ -103,7 +103,7 @@ Prints out the usage for the command line.
 def usage():
   usage = ["mysqlbackup.py [-hkdbups]\n"]
   usage.append("  [-h | --help] prints this help and usage message\n")
-  usage.append("  [-k | --keep] number of backups to keep before deleting\n")
+  usage.append("  [-k | --keep] number of days to keep backups before deleting\n")
   usage.append("  [-d | --databases] a comma separated list of databases\n")
   usage.append("  [-t | --store] directory locally to store the backups\n")
   usage.append("  [-u | --user] the database user\n")

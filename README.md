@@ -86,16 +86,11 @@ MySQL Backups
 ===========
 MySQL backups are done through the mysqlbackup.py script.
 
-A pid file is placed into the system temp directory to prevent concurrent 
-backups from running at once.  The script provides options for the number of 
-backups to keep.  After the max number of backups is reached, backups are 
-deleted starting with the oldest backup first.
-
 Use the -h or the --help flag to get a listing of options.
 
     mysqlbackup.py [-hkdbups]
        [-h | --help] prints this help and usage message
-       [-k | --keep] number of backups to keep before deleting
+       [-k | --keep] number of days to keep backups before deleting
        [-d | --databases] a comma separated list of databases
        [-t | --store] directory locally to store the backups
        [-u | --user] the database user
