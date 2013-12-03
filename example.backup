@@ -1,0 +1,12 @@
+#!/bin/sh
+
+BACKUP_BASE=./backupscripts
+BACKUP_CONF=$BACKUP_BASE/backup.conf
+BACKUP_DIR=$BACKUP_BASE/backup-base
+BACKUP_CMD=$BACKUP_BASE/incrbackup.py
+BACKUP_SERVER=backup01
+BACKUP_USER=root
+BACKUP_NS=backup-name
+BACKUP_KEEP=90
+
+$BACKUP_CMD --server $BACKUP_SERVER -f $BACKUP_CONF -t $BACKUP_DIR -u $BACKUP_USER -n $BACKUP_NS -k $BACKUP_KEEP 
