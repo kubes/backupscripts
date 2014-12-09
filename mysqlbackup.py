@@ -146,7 +146,7 @@ def main(argv):
       elif opt in ("-k", "--keep"):                
         keep = int(arg)
       elif opt in ("-d", "--databases"):                
-        server = arg                
+        databases = arg                
       elif opt in ("-t", "--store"): 
         store = arg
       elif opt in ("-u", "--user"): 
