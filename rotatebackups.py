@@ -192,7 +192,7 @@ def main(argv):
     rotback = RotateBackups(keep, store)
     rotated_names = rotback.rotate_backups()
     if (len(rotated_names) > 0):
-      print("\n".join(rotated_names)
+      print("\n".join(rotated_names))
 
   except(Exception):            
     logging.exception("Rotate backups failed.")      
