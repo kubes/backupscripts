@@ -12,6 +12,7 @@ import logging
 import tempfile
 import datetime
 import subprocess
+import json
 
 from operator import itemgetter
 
@@ -109,6 +110,7 @@ def usage():
   usage.append("  [-u | --user] the database user\n")
   usage.append("  [-p | --password] the database password\n")
   usage.append("  [-s | --host] the database server hostname\n")
+  usage.append("  [-o | --options] the json file to load the options from instead of using command line\n")
   message = string.join(usage)
   print message
 
@@ -125,37 +127,63 @@ def main(argv):
   password = None
   host = None
   store = None
-                   
+  restore = False
+  options = None
+
   try:
     
-    # process the command line options   
-    opts, args = getopt.getopt(argv, "hn:k:d:t:u:p:s:", ["help", "keep=", 
-      "databases=", "store=", "user=", "password=", "host="])
+    # process the command line options
+    st = "hn:k:d:t:u:p:s:o:"
+    lt = ["help", "keep=", "databases=", "store=", "user=", "password=", 
+        "host=", "options="]
+    opts, args = getopt.getopt(argv, st, lt)
     
     # if no arguments print usage
-    if len(argv) == 0:      
-      usage()                    
-      sys.exit()   
+    if len(argv) == 0:
+      usage()
+      sys.exit()
+    
+    # detect if loading options from file and load the json
+    vals = {}
+    fopts = None
+    for opt, arg in opts:
+        vals[opt] = arg
+    if ("-o" in vals.keys()) or ("--options" in vals.keys()):
+      opt = "-o" if "-o" in vals.keys() else "--options"
+      with open(vals[opt], 'r') as content_file:
+        fopts = json.load(content_file)
+    
+    # merge with opts
+    if fopts:
+      for key in fopts.keys():
+        prefix = ""
+        if key in st.split(":"):
+          prefix = "-"
+        elif key in map(lambda t: t[:-1] if t[-1] == "=" else t, lt):
+          prefix = "--"
+        else:
+          continue
+        opts.append((prefix+key, fopts[key]))
             
     # loop through all of the command line options and set the appropriate
     # values, overriding defaults
-    for opt, arg in opts:                
-      if opt in ("-h", "--help"):      
-        usage()                    
+    for opt, arg in opts:
+      if opt in ("-h", "--help"):
+        usage()
         sys.exit()
-      elif opt in ("-k", "--keep"):                
+      elif opt in ("-k", "--keep"):
         keep = int(arg)
-      elif opt in ("-d", "--databases"):                
-        databases = arg                
-      elif opt in ("-t", "--store"): 
+      elif opt in ("-d", "--databases"):
+        databases = arg
+      elif opt in ("-t", "--store"):
         store = arg
-      elif opt in ("-u", "--user"): 
+      elif opt in ("-u", "--user"):
         user = arg
-      elif opt in ("-p", "--password"): 
+      elif opt in ("-p", "--password"):
         password = arg
-      elif opt in ("-s", "--host"): 
+      elif opt in ("-s", "--host"):
         host = arg
-                                       
+           
   except getopt.GetoptError, msg:    
     logging.warning(msg)
     # if an error happens print the usage and exit with an error       
