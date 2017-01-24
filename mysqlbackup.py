@@ -266,6 +266,7 @@ def main(argv):
         fopts = json.load(content_file)
     
     # merge with opts
+    opts_keys = map(lambda val: val[0], opts)
     if fopts:
       for key in fopts.keys():
         prefix = ""
@@ -275,7 +276,8 @@ def main(argv):
           prefix = "--"
         else:
           continue
-        opts.append((prefix+key, fopts[key]))
+        if prefix+key not in opts_keys:
+          opts.append((prefix+key, fopts[key]))
             
     # loop through all of the command line options and set the appropriate
     # values, overriding defaults
