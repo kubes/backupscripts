@@ -99,7 +99,7 @@ class MysqlBackup:
       if not prev_date:
         prev_date = date
 
-      if (date != prev_date) or (i+1 == len(backups)):
+      if (date != prev_date):
         print "["+str(k)+"]", "(%s) %s" % (format_date(prev_date), databases)
 
         options[k] = {
@@ -116,6 +116,7 @@ class MysqlBackup:
       databases += ("" if databases == "" else ",") + data[1]
       filenames += ("" if filenames == "" else ",") + backups[i]
 
+    print "["+str(k)+"]", "(%s) %s" % (format_date(prev_date), databases)
     options[k] = {
       "date": prev_date,
       "databases": databases,
