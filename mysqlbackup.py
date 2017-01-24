@@ -193,7 +193,7 @@ class MysqlBackup:
     tstamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")    
     dbs = self.get_databases()
     skip = ["information_schema", "performance_schema", "test"]
-    for db in databases:
+    for db in dbs:
       if db in skip:
         continue
 
