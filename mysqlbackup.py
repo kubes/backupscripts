@@ -12,6 +12,7 @@ import logging
 import tempfile
 import datetime
 import subprocess
+import readline
 import json
 
 from operator import itemgetter
@@ -32,6 +33,18 @@ Revision      | Author            | Comment
 20130428-1.0    Dennis E. Kubes     Initial creation of script.
 -----------------------------------------------------------------------------
 """
+
+def rlinput(prompt, prefill=''):
+     readline.set_startup_hook(lambda: readline.insert_text(prefill))
+     try:
+        return raw_input(prompt)
+     finally:
+        readline.set_startup_hook()
+
+def format_date(raw_date):
+  return "%s-%s-%s %s:%s:%s" % (raw_date[0:4], raw_date[4:6], 
+    raw_date[6:8], raw_date[8:10], raw_date[10:12], raw_date[12:14])
+
 class MysqlBackup:
 
   def __init__(self, keep=90, databases=None, store=None, user="root", 
@@ -63,7 +76,97 @@ class MysqlBackup:
     list_cmd += " --silent -N -e 'show databases'"
     databases = os.popen(list_cmd).readlines()
     return [s.strip() for s in databases]
-        
+    
+  def restore(self):    
+    dbbackup_path = self.store + os.sep 
+    backups = sorted(os.listdir(dbbackup_path), reverse=True)
+
+    # show available options
+    k = 1
+    options = {}
+    prev_date = ""
+    databases = ""
+    filenames = ""
+
+    print "Available backups to restore:"
+    for i in range(len(backups)):
+      data = backups[i].split(".")
+      date = data[0]
+
+      if not prev_date:
+        prev_date = date
+
+      if (date != prev_date) or (i+1 == len(backups)):
+        print "["+str(k)+"]", "(%s) %s" % (format_date(prev_date), databases)
+
+        options[k] = {
+          "date": prev_date,
+          "databases": databases,
+          "filenames": filenames
+        }
+
+        k += 1
+        prev_date = date
+        databases = ""
+        filenames = ""
+
+      databases += ("" if databases == "" else ",") + data[1]
+      filenames += ("" if filenames == "" else ",") + backups[i]
+
+    options[k] = {
+      "date": prev_date,
+      "databases": databases,
+      "filenames": filenames
+    }
+
+    # get the selection
+    user_input = -1
+    max_option = len(options.keys())
+    while True:
+      user_input = int(raw_input("\nSelect backup: "))
+      if (user_input < 1) or (max_option < user_input):
+        print "Error: The value should be between 1 and", max_option
+      else:
+        break
+    
+    # get the databases to restore
+    date = format_date(options[user_input]["date"])
+    filenames = options[user_input]["filenames"]
+    selected_databases = rlinput("Databases to restore: ", options[user_input]["databases"])
+    databases = ",".join(filter(lambda db: db in selected_databases, self.get_databases()))
+    if databases == "":
+      print "Error: The selected databases doesn't match any created databases."
+      sys.exit()
+
+    # ask for confirmation
+    print "The databases \"%s\" are going to be restored using the version dated \"%s\"" % (databases, date)
+    confirmation = rlinput("Continue? [Y/n] ", "Y")
+    if confirmation != "Y":
+      print "Aborted."
+      sys.exit()
+
+    # expand the filenames of the databases
+    databases = databases.split(",")
+    filenames = filter(lambda fln: reduce(lambda x,y: x or y, 
+                        map(lambda dbn: dbn in fln, databases)), 
+                      filenames.split(","))
+
+    # restore the databases
+    for filename in filenames:
+      db = filename.split(".")[1]
+      restore_cmd = "gunzip < " + dbbackup_path + filename + \
+        " | mysql -u " + self.user
+      if self.host != None:
+        restore_cmd += " -h " + "'" + self.host + "'"
+      if self.password != None:
+        restore_cmd += " -p" + self.password
+      restore_cmd += " " + db
+      print "Restoring \"" + db + "\"...",
+      logging.info("Restore db, %s from %s." % (db, dbbackup_path + filename))
+      os.popen(restore_cmd)
+      print "done"
+
+
   def backup(self):
     
     padding = len(str(self.keep))    
@@ -80,7 +183,7 @@ class MysqlBackup:
         
     # get the current date and timestamp and the zero backup name
     tstamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")    
-    databases = self.get_databases()
+    dbs = self.get_databases()
     skip = ["information_schema", "performance_schema", "test"]
     for db in databases:
       if db in skip:
@@ -111,6 +214,7 @@ def usage():
   usage.append("  [-p | --password] the database password\n")
   usage.append("  [-s | --host] the database server hostname\n")
   usage.append("  [-o | --options] the json file to load the options from instead of using command line\n")
+  usage.append("  [-r | --restore] enables restore mode\n")
   message = string.join(usage)
   print message
 
@@ -127,15 +231,15 @@ def main(argv):
   password = None
   host = None
   store = None
-  restore = False
   options = None
+  restore = False
 
   try:
     
     # process the command line options
-    st = "hn:k:d:t:u:p:s:o:"
+    st = "hn:k:d:t:u:p:s:o:r"
     lt = ["help", "keep=", "databases=", "store=", "user=", "password=", 
-        "host=", "options="]
+        "host=", "options=", "restore"]
     opts, args = getopt.getopt(argv, st, lt)
     
     # if no arguments print usage
@@ -183,6 +287,8 @@ def main(argv):
         password = arg
       elif opt in ("-s", "--host"):
         host = arg
+      elif opt in ("-r", "--restore"):
+        restore = True
            
   except getopt.GetoptError, msg:    
     logging.warning(msg)
@@ -210,9 +316,12 @@ def main(argv):
       f.write("%s\n" % pid)
       f.close()
       
-    # create the backup object and call its backup method
+    # create the backup object and call its backup method    
     mysql_backup = MysqlBackup(keep, databases, store, user, password, host)
-    mysql_backup.backup()
+    if restore:
+        mysql_backup.restore()
+    else:
+        mysql_backup.backup()
 
   except(Exception):            
     logging.exception("Mysql backups failed.")      
