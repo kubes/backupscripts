@@ -58,8 +58,11 @@ class MysqlBackup:
     self.host = host
     
   def run_command(self, command=None, shell=False, ignore_errors=False, 
-    ignore_codes=None, get_output=False):
-    result = subprocess.call(command, shell=False)
+    ignore_codes=None, get_output=False, path="."):
+    p = subprocess.Popen([command], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, cwd=path)
+    out, err = p.communicate()
+
+    result = p.returncode
     if result and not ignore_errors and (not ignore_codes or result in set(ignore_codes)):
       raise BaseException(str(command) + " " + str(result))
 
@@ -152,6 +155,7 @@ class MysqlBackup:
                       filenames.split(","))
 
     # restore the databases
+    print
     for filename in filenames:
       db = filename.split(".")[1]
       restore_cmd = "gunzip < " + dbbackup_path + filename + \
@@ -161,11 +165,14 @@ class MysqlBackup:
       if self.password != None:
         restore_cmd += " -p" + self.password
       restore_cmd += " " + db
+
       print "Restoring \"" + db + "\"...",
+      sys.stdout.flush()
       logging.info("Restore db, %s from %s." % (db, dbbackup_path + filename))
-      os.popen(restore_cmd)
+      self.run_command(restore_cmd)
       print "done"
 
+    print "Restore complete!"
 
   def backup(self):
     
