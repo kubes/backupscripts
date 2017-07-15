@@ -58,7 +58,7 @@ Pushed Filesystem Backups
 ===========
 Pushed filesystem backups are done through the pushbackup.py script.
 
-his is an incremental backup system that pushes to a remote server.  Useful
+This is an incremental backup system that pushes to a remote server.  Useful
 for remote systems that aren't always on (laptops).  Backups use rsync and hard 
 links to keep multiple full copies while using minimal space.  It is assumed
 that the rotatebackups.py script exists on the remote backup server and that
@@ -96,6 +96,8 @@ Use the -h or the --help flag to get a listing of options.
        [-u | --user] the database user
        [-p | --password] the database password
        [-s | --host] the database server hostname
+       [-o | --options] the json file to load the options from instead of using command line
+       [-r | --restore] enables restore mode
 
 License and Bug Fixes
 ===========
