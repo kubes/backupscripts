@@ -59,8 +59,6 @@ class IncrementalBackup:
     
   def run_command(self, command=None, shell=False, ignore_errors=False, 
     ignore_codes=None):
-    #print(command)
-    #exit()
     result = subprocess.call(command, shell=False)
     if result and not ignore_errors and (not ignore_codes or result in set(ignore_codes)):
       raise BaseException(str(command) + " " + str(result))
