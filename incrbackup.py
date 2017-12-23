@@ -59,6 +59,8 @@ class IncrementalBackup:
     
   def run_command(self, command=None, shell=False, ignore_errors=False, 
     ignore_codes=None):
+    #print(command)
+    #exit()
     result = subprocess.call(command, shell=False)
     if result and not ignore_errors and (not ignore_codes or result in set(ignore_codes)):
       raise BaseException(str(command) + " " + str(result))
@@ -100,6 +102,10 @@ class IncrementalBackup:
         for exclude in config["exclude"]:
           rsync_base.extend(["--exclude", exclude])
     
+      if "port" in config:
+	for thePort in config["port"]:
+          rsync_base.extend(["-e", thePort])
+
     # one rsync command per path, ignore files vanished errors
     for bpath in bpaths:
       bpath = bpath.strip()

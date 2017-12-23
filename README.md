@@ -49,6 +49,13 @@ exclude filter rules.
       ]
     }
 
+To use a non-standard port, include this to the config file along with the "backup" and "exclude" blocks. An exmple with port 2345 is shown. If no port block is given, port 22 is used by default.
+
+      "port" : [
+	"ssh -p 2345"
+      ]
+
+
 Usually the backup scripts are run from a remote, off-site, server pulling down
 content from the servers to backup.  Scripts are usually setup to run from cron
 periodically.
