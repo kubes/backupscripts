@@ -100,6 +100,10 @@ class IncrementalBackup:
         for exclude in config["exclude"]:
           rsync_base.extend(["--exclude", exclude])
     
+      if "port" in config:
+	for thePort in config["port"]:
+          rsync_base.extend(["-e", thePort])
+
     # one rsync command per path, ignore files vanished errors
     for bpath in bpaths:
       bpath = bpath.strip()
