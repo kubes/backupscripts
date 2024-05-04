@@ -86,7 +86,7 @@ class RotateBackups:
           base_path = os.path.abspath(self.store)
           old_bpath = base_path + os.sep + origdir
           num_prefix = str(bnum + 1).zfill(padding)
-          incr_name = num_prefix + "." + string.join(bparts[1:], ".")
+          incr_name = num_prefix + "." + ".".join(bparts[1:])
           new_bpath = base_path + os.sep + incr_name        
           if bnum > 0:
             logging.debug([bnum, "mv", old_bpath, new_bpath])
@@ -105,7 +105,7 @@ class RotateBackups:
               tstamp = now.strftime("%Y%m%d%H%M%S")
               zero_parts = ["".zfill(padding), tstamp]
               zero_parts.extend(bparts[2:])
-              zbackup_path = base_path + os.sep + string.join(zero_parts, ".")
+              zbackup_path = base_path + os.sep + ".".join(zero_parts)
   
               # move the zero directory to the new timestamp
               logging.debug([0, "mv", old_bpath, zbackup_path])   
@@ -130,8 +130,8 @@ def usage():
   usage.append("  [-h | --help] prints this help and usage message\n")
   usage.append("  [-k | --keep] number of backups to keep before deleting\n")
   usage.append("  [-t | --store] directory locally to store the backups\n")
-  message = string.join(usage)
-  print message
+  message = "".join(usage)
+  print(message)
 
 """
 Main method that starts up the backup.  
@@ -165,7 +165,7 @@ def main(argv):
       elif opt in ("-t", "--store"): 
         store = arg
                                        
-  except getopt.GetoptError, msg:
+  except(getopt.GetoptError, msg):
     # if an error happens print the usage and exit with an error       
     usage()                          
     sys.exit(errno.EIO)

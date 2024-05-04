@@ -91,7 +91,7 @@ class MysqlBackup:
     databases = ""
     filenames = ""
 
-    print "Available backups to restore:"
+    print("Available backups to restore:")
     for i in range(len(backups)):
       data = backups[i].split(".")
       date = data[0]
@@ -100,7 +100,7 @@ class MysqlBackup:
         prev_date = date
 
       if (date != prev_date):
-        print "["+str(k)+"]", "(%s) %s" % (format_date(prev_date), databases)
+        print("["+str(k)+"]", "(%s) %s" % (format_date(prev_date), databases))
 
         options[k] = {
           "date": prev_date,
@@ -116,7 +116,7 @@ class MysqlBackup:
       databases += ("" if databases == "" else ",") + data[1]
       filenames += ("" if filenames == "" else ",") + backups[i]
 
-    print "["+str(k)+"]", "(%s) %s" % (format_date(prev_date), databases)
+    print("["+str(k)+"]", "(%s) %s" % (format_date(prev_date), databases))
     options[k] = {
       "date": prev_date,
       "databases": databases,
@@ -129,7 +129,7 @@ class MysqlBackup:
     while True:
       user_input = int(raw_input("\nSelect backup: "))
       if (user_input < 1) or (max_option < user_input):
-        print "Error: The value should be between 1 and", max_option
+        print("Error: The value should be between 1 and", max_option)
       else:
         break
     
@@ -139,14 +139,14 @@ class MysqlBackup:
     selected_databases = rlinput("Databases to restore: ", options[user_input]["databases"])
     databases = ",".join(filter(lambda db: db in selected_databases, self.get_databases()))
     if databases == "":
-      print "Error: The selected databases doesn't match any created databases."
+      print("Error: The selected databases doesn't match any created databases.")
       sys.exit()
 
     # ask for confirmation
-    print "The databases \"%s\" are going to be restored using the version dated \"%s\"" % (databases, date)
+    print("The databases \"%s\" are going to be restored using the version dated \"%s\"" % (databases, date))
     confirmation = rlinput("Continue? [Y/n] ", "Y")
     if confirmation != "Y":
-      print "Aborted."
+      print("Aborted.")
       sys.exit()
 
     # expand the filenames of the databases
@@ -156,7 +156,6 @@ class MysqlBackup:
                       filenames.split(","))
 
     # restore the databases
-    print
     for filename in filenames:
       db = filename.split(".")[1]
       restore_cmd = "gunzip < " + dbbackup_path + filename + \
@@ -167,13 +166,13 @@ class MysqlBackup:
         restore_cmd += " -p" + self.password
       restore_cmd += " " + db
 
-      print "Restoring \"" + db + "\"...",
+      print("Restoring \"" + db + "\"...")
       sys.stdout.flush()
       logging.info("Restore db, %s from %s." % (db, dbbackup_path + filename))
       self.run_command(restore_cmd)
-      print "done"
+      print("done")
 
-    print "Restore complete!"
+    print("Restore complete!")
 
   def backup(self):
     
@@ -197,7 +196,7 @@ class MysqlBackup:
       if db in skip:
         continue
 
-      dbbackup_name = string.join([tstamp, db, "sql"], ".")
+      dbbackup_name = ".".join([tstamp, db, "sql"])
       dbbackup_path = self.store + os.sep + dbbackup_name 
 
       dump_cmd = "mysqldump -u " + self.user
@@ -223,8 +222,8 @@ def usage():
   usage.append("  [-s | --host] the database server hostname\n")
   usage.append("  [-o | --options] the json file to load the options from instead of using command line\n")
   usage.append("  [-r | --restore] enables restore mode\n")
-  message = string.join(usage)
-  print message
+  message = "".join(usage)
+  print(message)
 
 """
 Main method that starts up the backup.  
@@ -300,7 +299,7 @@ def main(argv):
       elif opt in ("-r", "--restore"):
         restore = True
            
-  except getopt.GetoptError, msg:    
+  except(getopt.GetoptError, msg):    
     logging.warning(msg)
     # if an error happens print the usage and exit with an error       
     usage()                          

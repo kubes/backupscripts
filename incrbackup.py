@@ -75,7 +75,7 @@ class IncrementalBackup:
       now = datetime.datetime.now()
       padding = len(str(self.keep))
       tstamp = now.strftime("%Y%m%d%H%M%S")
-      zbackup_name = string.join(["".zfill(padding), tstamp, self.name], ".")
+      zbackup_name = ".".join(["".zfill(padding), tstamp, self.name])
       rsync_to = self.store + os.sep + zbackup_name
     else:
       rsync_to = rotated_names[0]
@@ -127,8 +127,8 @@ def usage():
   usage.append("  [-c | --config] configuration file with backup paths\n")
   usage.append("  [-t | --store] directory locally to store the backups\n")
   usage.append("  [-u | --user] the remote username used to ssh for backups\n")
-  message = string.join(usage)
-  print message
+  message = "".join(usage)
+  print(message)
 
 """
 Main method that starts up the backup.  
@@ -174,7 +174,7 @@ def main(argv):
       elif opt in ("-u", "--user"): 
         user = arg
                                        
-  except getopt.GetoptError, msg:
+  except(getopt.GetoptError, msg):
     # if an error happens print the usage and exit with an error       
     usage()                          
     sys.exit(errno.EIO)

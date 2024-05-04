@@ -87,7 +87,7 @@ class PushBackup:
       now = datetime.datetime.now()
       padding = len(str(self.keep))
       tstamp = now.strftime("%Y%m%d%H%M%S")
-      zbackup_name = string.join(["".zfill(padding), tstamp, self.name], ".")
+      zbackup_name = ".".join(["".zfill(padding), tstamp, self.name])
       rsync_to = self.store + os.sep + zbackup_name
     else:
       rsync_to = rotated_names[0]
@@ -135,8 +135,8 @@ def usage():
   usage.append("  [-u | --user] the remote username used to ssh for backups\n")
   usage.append("  [-x | --ssh-key] the ssh key used to connect to the backup\n")
   usage.append("  [-r | --rotate-script] the rotatebackups script remote location\n")
-  message = string.join(usage)
-  print message
+  message = "".join(usage)
+  print(message)
 
 """
 Main method that starts up the backup.  
@@ -189,7 +189,7 @@ def main(argv):
       elif opt in ("-r", "--rotate-script"): 
         rotate_script = arg
 
-  except getopt.GetoptError, msg:
+  except(getopt.GetoptError, msg):
     # if an error happens print the usage and exit with an error       
     usage()                          
     sys.exit(errno.EIO)
